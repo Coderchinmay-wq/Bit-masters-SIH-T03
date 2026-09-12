@@ -20,10 +20,11 @@ document.addEventListener('DOMContentLoaded', () => {
   loadHistoryData();
 
   // Set default server URL in ESP32 guide
-  const host = window.location.host || 'localhost:5000';
+  const host = window.location.host || 'localhost:3000';
+  const proto = window.location.protocol || 'http:';
   const guideUrlEl = document.getElementById('guide-server-url');
   if (guideUrlEl) {
-    guideUrlEl.innerText = `http://${host}/api/sensor-data`;
+    guideUrlEl.innerText = `${proto}//${host}/api/sensor-data`;
   }
 });
 
@@ -63,7 +64,10 @@ function selectNode(nodeId) {
     activeBtn.classList.add('bg-blue-600', 'text-white', 'border-blue-500');
   }
 
-  document.getElementById('ml-target-node').innerText = nodeId;
+  const targetNodeEl = document.getElementById('ml-target-node');
+  if (targetNodeEl) {
+    targetNodeEl.innerText = nodeId;
+  }
 
   fetchLatestNodeData(nodeId);
   loadHistoryData();
@@ -80,24 +84,25 @@ function setMode(mode) {
   const demoBadge = document.getElementById('demo-mode-badge');
 
   if (isDemo) {
-    liveBtn.className = "px-2.5 py-1 rounded-lg font-semibold transition text-slate-400";
-    demoBtn.className = "px-2.5 py-1 rounded-lg font-semibold transition bg-amber-500 text-slate-950 shadow";
-    scenarioBox.classList.remove('hidden');
-    demoBadge.classList.remove('hidden');
+    if (liveBtn) liveBtn.className = "px-2.5 py-1 rounded-lg font-semibold transition text-slate-400";
+    if (demoBtn) demoBtn.className = "px-2.5 py-1 rounded-lg font-semibold transition bg-amber-500 text-slate-950 shadow";
+    if (scenarioBox) scenarioBox.classList.remove('hidden');
+    if (demoBadge) demoBadge.classList.remove('hidden');
   } else {
-    liveBtn.className = "px-2.5 py-1 rounded-lg font-semibold transition bg-blue-600 text-white shadow";
-    demoBtn.className = "px-2.5 py-1 rounded-lg font-semibold transition text-slate-400";
-    scenarioBox.classList.add('hidden');
-    demoBadge.classList.add('hidden');
+    if (liveBtn) liveBtn.className = "px-2.5 py-1 rounded-lg font-semibold transition bg-blue-600 text-white shadow";
+    if (demoBtn) demoBtn.className = "px-2.5 py-1 rounded-lg font-semibold transition text-slate-400";
+    if (scenarioBox) scenarioBox.classList.add('hidden');
+    if (demoBadge) demoBadge.classList.add('hidden');
   }
 
-  const scenarioVal = document.getElementById('select-scenario').value;
+  const scenarioSelect = document.getElementById('select-scenario');
+  const scenarioVal = scenarioSelect ? scenarioSelect.value : 'NORMAL';
 
   fetch('/api/demo/mode', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ enabled: isDemo, scenario: scenarioVal })
-  });
+  }).catch(err => console.error("Error toggling demo mode:", err));
 }
 
 function changeScenario(scenario) {
@@ -105,7 +110,7 @@ function changeScenario(scenario) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ enabled: true, scenario: scenario })
-  });
+  }).catch(err => console.error("Error changing scenario:", err));
 }
 
 // Fetch System Status
@@ -117,7 +122,8 @@ function fetchInitialStatus() {
       if (data.demo_mode) {
         setMode('demo');
         if (data.demo_scenario) {
-          document.getElementById('select-scenario').value = data.demo_scenario;
+          const scenarioSelect = document.getElementById('select-scenario');
+          if (scenarioSelect) scenarioSelect.value = data.demo_scenario;
         }
       } else {
         setMode('live');
@@ -144,7 +150,8 @@ function startPollingStatus() {
       .then(res => res.json())
       .then(data => {
         updateGlobalStatusPill(data.esp32_status, data.last_contact_seconds_ago);
-      });
+      })
+      .catch(err => console.error("Polling status error:", err));
   }, 5000);
 }
 
@@ -155,17 +162,21 @@ function updateGlobalStatusPill(statusStr, secondsAgo) {
   const monLastReceived = document.getElementById('mon-last-received');
 
   if (statusStr === 'ONLINE') {
-    dot.className = "status-dot online";
-    text.innerText = "ONLINE";
-    text.className = "font-mono text-emerald-400";
+    if (dot) dot.className = "status-dot online";
+    if (text) {
+      text.innerText = "ONLINE";
+      text.className = "font-mono text-emerald-400";
+    }
     if (monStatus) {
       monStatus.innerHTML = `<span class="status-dot online"></span> ONLINE`;
       monStatus.className = "font-bold text-emerald-400 flex items-center gap-1";
     }
   } else {
-    dot.className = "status-dot offline";
-    text.innerText = "ESP32 OFFLINE";
-    text.className = "font-mono text-rose-400";
+    if (dot) dot.className = "status-dot offline";
+    if (text) {
+      text.innerText = "ESP32 OFFLINE";
+      text.className = "font-mono text-rose-400";
+    }
     if (monStatus) {
       monStatus.innerHTML = `<span class="status-dot offline"></span> ESP32 OFFLINE`;
       monStatus.className = "font-bold text-rose-400 flex items-center gap-1";
@@ -246,44 +257,59 @@ function dismissAnomaly() {
 // Update UI Telemetry Cards
 function updateDashboardCards(r, ml) {
   // MPU6050
-  document.getElementById('val-tilt').innerText = (r.tilt || 0.0).toFixed(1);
-  document.getElementById('val-accel-x').innerText = (r.accel_x || 0.0).toFixed(2);
-  document.getElementById('val-accel-y').innerText = (r.accel_y || 0.0).toFixed(2);
-  document.getElementById('val-accel-z').innerText = (r.accel_z || 9.8).toFixed(2);
-  document.getElementById('val-gyro-x').innerText = (r.gyro_x || 0.0).toFixed(2);
-  document.getElementById('val-gyro-y').innerText = (r.gyro_y || 0.0).toFixed(2);
-  document.getElementById('val-gyro-z').innerText = (r.gyro_z || 0.0).toFixed(2);
+  const valTilt = document.getElementById('val-tilt');
+  if (valTilt) valTilt.innerText = (r.tilt !== undefined ? r.tilt : 0.0).toFixed(1);
+  const valAccelX = document.getElementById('val-accel-x');
+  if (valAccelX) valAccelX.innerText = (r.accel_x !== undefined ? r.accel_x : 0.0).toFixed(2);
+  const valAccelY = document.getElementById('val-accel-y');
+  if (valAccelY) valAccelY.innerText = (r.accel_y !== undefined ? r.accel_y : 0.0).toFixed(2);
+  const valAccelZ = document.getElementById('val-accel-z');
+  if (valAccelZ) valAccelZ.innerText = (r.accel_z !== undefined ? r.accel_z : 9.8).toFixed(2);
+  const valGyroX = document.getElementById('val-gyro-x');
+  if (valGyroX) valGyroX.innerText = (r.gyro_x !== undefined ? r.gyro_x : 0.0).toFixed(2);
+  const valGyroY = document.getElementById('val-gyro-y');
+  if (valGyroY) valGyroY.innerText = (r.gyro_y !== undefined ? r.gyro_y : 0.0).toFixed(2);
+  const valGyroZ = document.getElementById('val-gyro-z');
+  if (valGyroZ) valGyroZ.innerText = (r.gyro_z !== undefined ? r.gyro_z : 0.0).toFixed(2);
 
   const mpuStatus = document.getElementById('card-mpu-status');
-  if (r.tilt >= 8.0) {
-    mpuStatus.innerText = "DANGER";
-    mpuStatus.className = "text-xs font-semibold px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-500/30";
-  } else if (r.tilt >= 4.0) {
-    mpuStatus.innerText = "ELEVATED";
-    mpuStatus.className = "text-xs font-semibold px-2 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-500/30";
-  } else {
-    mpuStatus.innerText = "NORMAL";
-    mpuStatus.className = "text-xs font-semibold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/30";
+  if (mpuStatus) {
+    if (r.tilt >= 8.0) {
+      mpuStatus.innerText = "DANGER";
+      mpuStatus.className = "text-xs font-semibold px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-500/30";
+    } else if (r.tilt >= 4.0) {
+      mpuStatus.innerText = "ELEVATED";
+      mpuStatus.className = "text-xs font-semibold px-2 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-500/30";
+    } else {
+      mpuStatus.innerText = "NORMAL";
+      mpuStatus.className = "text-xs font-semibold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/30";
+    }
   }
 
   // Vibration
-  document.getElementById('val-vibration').innerText = Math.round(r.vibration || 0);
-  document.getElementById('val-vib-events').innerText = r.vibration_events || (r.vibration > 25 ? 12 : 3);
+  const valVib = document.getElementById('val-vibration');
+  if (valVib) valVib.innerText = Math.round(r.vibration || 0);
+  const valVibEvents = document.getElementById('val-vib-events');
+  if (valVibEvents) valVibEvents.innerText = r.vibration_events || (r.vibration > 25 ? 12 : 3);
   const vibStatus = document.getElementById('card-vib-status');
-  if (r.vibration >= 60) {
-    vibStatus.innerText = "HIGH VIB";
-    vibStatus.className = "text-xs font-semibold px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-500/30";
-  } else if (r.vibration >= 30) {
-    vibStatus.innerText = "MODERATE";
-    vibStatus.className = "text-xs font-semibold px-2 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-500/30";
-  } else {
-    vibStatus.innerText = "NORMAL";
-    vibStatus.className = "text-xs font-semibold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/30";
+  if (vibStatus) {
+    if (r.vibration >= 60) {
+      vibStatus.innerText = "HIGH VIB";
+      vibStatus.className = "text-xs font-semibold px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-500/30";
+    } else if (r.vibration >= 30) {
+      vibStatus.innerText = "MODERATE";
+      vibStatus.className = "text-xs font-semibold px-2 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-500/30";
+    } else {
+      vibStatus.innerText = "NORMAL";
+      vibStatus.className = "text-xs font-semibold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/30";
+    }
   }
 
   // DHT Temp / Humidity
-  document.getElementById('val-temp').innerText = (r.temperature || 0.0).toFixed(1);
-  document.getElementById('val-humidity').innerText = Math.round(r.humidity || 0);
+  const valTemp = document.getElementById('val-temp');
+  if (valTemp) valTemp.innerText = (r.temperature !== undefined ? r.temperature : 0.0).toFixed(1);
+  const valHum = document.getElementById('val-humidity');
+  if (valHum) valHum.innerText = Math.round(r.humidity || 0);
 
   // ML Risk Analysis Card
   const risk = ml ? ml.risk : (r.risk_level || 'LOW');
@@ -294,34 +320,48 @@ function updateDashboardCards(r, ml) {
   const confVal = document.getElementById('val-risk-confidence');
   const confBar = document.getElementById('bar-risk-confidence');
 
-  confVal.innerText = `${conf.toFixed(1)}%`;
-  confBar.style.width = `${Math.min(100, Math.max(0, conf))}%`;
+  if (confVal) confVal.innerText = `${conf.toFixed(1)}%`;
+  if (confBar) confBar.style.width = `${Math.min(100, Math.max(0, conf))}%`;
 
   if (risk === 'HIGH') {
-    riskBadge.className = "badge-risk badge-high text-base";
-    riskBadge.innerText = "HIGH RISK";
-    riskContainer.className = "card-glass p-6 space-y-4 border-l-4 border-l-rose-500 bg-rose-950/20";
-    confBar.className = "bg-rose-500 h-1.5 rounded-full";
+    if (riskBadge) {
+      riskBadge.className = "badge-risk badge-high text-base";
+      riskBadge.innerText = "HIGH RISK";
+    }
+    if (riskContainer) riskContainer.className = "card-glass p-6 space-y-4 border-l-4 border-l-rose-500 bg-rose-950/20";
+    if (confBar) confBar.className = "bg-rose-500 h-1.5 rounded-full";
   } else if (risk === 'MEDIUM') {
-    riskBadge.className = "badge-risk badge-medium text-base";
-    riskBadge.innerText = "MEDIUM RISK";
-    riskContainer.className = "card-glass p-6 space-y-4 border-l-4 border-l-amber-500 bg-amber-950/10";
-    confBar.className = "bg-amber-500 h-1.5 rounded-full";
+    if (riskBadge) {
+      riskBadge.className = "badge-risk badge-medium text-base";
+      riskBadge.innerText = "MEDIUM RISK";
+    }
+    if (riskContainer) riskContainer.className = "card-glass p-6 space-y-4 border-l-4 border-l-amber-500 bg-amber-950/10";
+    if (confBar) confBar.className = "bg-amber-500 h-1.5 rounded-full";
   } else {
-    riskBadge.className = "badge-risk badge-low text-base";
-    riskBadge.innerText = "LOW RISK";
-    riskContainer.className = "card-glass p-6 space-y-4 border-l-4 border-l-emerald-500";
-    confBar.className = "bg-emerald-500 h-1.5 rounded-full";
+    if (riskBadge) {
+      riskBadge.className = "badge-risk badge-low text-base";
+      riskBadge.innerText = "LOW RISK";
+    }
+    if (riskContainer) riskContainer.className = "card-glass p-6 space-y-4 border-l-4 border-l-emerald-500";
+    if (confBar) confBar.className = "bg-emerald-500 h-1.5 rounded-full";
   }
 
   // Update ML Page metrics as well
-  document.getElementById('ml-badge-large').className = riskBadge.className + " text-xl px-6 py-2";
-  document.getElementById('ml-badge-large').innerText = riskBadge.innerText;
-  document.getElementById('ml-confidence-large').innerText = `${conf.toFixed(1)}%`;
-  document.getElementById('ml-factor-tilt').innerText = `${(r.tilt || 0.0).toFixed(1)}°`;
-  document.getElementById('ml-factor-vib').innerText = Math.round(r.vibration || 0);
-  document.getElementById('ml-factor-temp').innerText = `${(r.temperature || 0.0).toFixed(1)}°C`;
-  document.getElementById('ml-factor-hum').innerText = `${Math.round(r.humidity || 0)}%`;
+  const mlBadgeLarge = document.getElementById('ml-badge-large');
+  if (mlBadgeLarge && riskBadge) {
+    mlBadgeLarge.className = riskBadge.className + " text-xl px-6 py-2";
+    mlBadgeLarge.innerText = riskBadge.innerText;
+  }
+  const mlConfLarge = document.getElementById('ml-confidence-large');
+  if (mlConfLarge) mlConfLarge.innerText = `${conf.toFixed(1)}%`;
+  const mlFactorTilt = document.getElementById('ml-factor-tilt');
+  if (mlFactorTilt) mlFactorTilt.innerText = `${(r.tilt !== undefined ? r.tilt : 0.0).toFixed(1)}°`;
+  const mlFactorVib = document.getElementById('ml-factor-vib');
+  if (mlFactorVib) mlFactorVib.innerText = Math.round(r.vibration || 0);
+  const mlFactorTemp = document.getElementById('ml-factor-temp');
+  if (mlFactorTemp) mlFactorTemp.innerText = `${(r.temperature !== undefined ? r.temperature : 0.0).toFixed(1)}°C`;
+  const mlFactorHum = document.getElementById('ml-factor-hum');
+  if (mlFactorHum) mlFactorHum.innerText = `${Math.round(r.humidity || 0)}%`;
 }
 
 function updateNodeMatrixBadge(nodeId, riskLevel) {
@@ -359,113 +399,128 @@ function initCharts() {
   };
 
   // 1. Tilt Chart
-  const ctxTilt = document.getElementById('chart-tilt').getContext('2d');
-  charts.tilt = new Chart(ctxTilt, {
-    type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        label: 'Tilt (°)',
-        data: [],
-        borderColor: '#38bdf8',
-        backgroundColor: 'rgba(56, 189, 248, 0.1)',
-        borderWidth: 2,
-        tension: 0.3,
-        fill: true
-      }]
-    },
-    options: commonOptions
-  });
+  const elTilt = document.getElementById('chart-tilt');
+  if (elTilt) {
+    const ctxTilt = elTilt.getContext('2d');
+    charts.tilt = new Chart(ctxTilt, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Tilt (°)',
+          data: [],
+          borderColor: '#38bdf8',
+          backgroundColor: 'rgba(56, 189, 248, 0.1)',
+          borderWidth: 2,
+          tension: 0.3,
+          fill: true
+        }]
+      },
+      options: commonOptions
+    });
+  }
 
   // 2. Vibration Chart
-  const ctxVib = document.getElementById('chart-vibration').getContext('2d');
-  charts.vibration = new Chart(ctxVib, {
-    type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        label: 'Vibration',
-        data: [],
-        borderColor: '#f59e0b',
-        backgroundColor: 'rgba(245, 158, 11, 0.1)',
-        borderWidth: 2,
-        tension: 0.3,
-        fill: true
-      }]
-    },
-    options: commonOptions
-  });
+  const elVib = document.getElementById('chart-vibration');
+  if (elVib) {
+    const ctxVib = elVib.getContext('2d');
+    charts.vibration = new Chart(ctxVib, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Vibration',
+          data: [],
+          borderColor: '#f59e0b',
+          backgroundColor: 'rgba(245, 158, 11, 0.1)',
+          borderWidth: 2,
+          tension: 0.3,
+          fill: true
+        }]
+      },
+      options: commonOptions
+    });
+  }
 
   // 3. Temp Chart
-  const ctxTemp = document.getElementById('chart-temperature').getContext('2d');
-  charts.temperature = new Chart(ctxTemp, {
-    type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        label: 'Temp (°C)',
-        data: [],
-        borderColor: '#f43f5e',
-        backgroundColor: 'rgba(244, 63, 94, 0.1)',
-        borderWidth: 2,
-        tension: 0.3,
-        fill: true
-      }]
-    },
-    options: commonOptions
-  });
+  const elTemp = document.getElementById('chart-temperature');
+  if (elTemp) {
+    const ctxTemp = elTemp.getContext('2d');
+    charts.temperature = new Chart(ctxTemp, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Temp (°C)',
+          data: [],
+          borderColor: '#f43f5e',
+          backgroundColor: 'rgba(244, 63, 94, 0.1)',
+          borderWidth: 2,
+          tension: 0.3,
+          fill: true
+        }]
+      },
+      options: commonOptions
+    });
+  }
 
   // 4. Humidity Chart
-  const ctxHum = document.getElementById('chart-humidity').getContext('2d');
-  charts.humidity = new Chart(ctxHum, {
-    type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        label: 'Humidity (%)',
-        data: [],
-        borderColor: '#06b6d4',
-        backgroundColor: 'rgba(6, 182, 212, 0.1)',
-        borderWidth: 2,
-        tension: 0.3,
-        fill: true
-      }]
-    },
-    options: commonOptions
-  });
+  const elHum = document.getElementById('chart-humidity');
+  if (elHum) {
+    const ctxHum = elHum.getContext('2d');
+    charts.humidity = new Chart(ctxHum, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Humidity (%)',
+          data: [],
+          borderColor: '#06b6d4',
+          backgroundColor: 'rgba(6, 182, 212, 0.1)',
+          borderWidth: 2,
+          tension: 0.3,
+          fill: true
+        }]
+      },
+      options: commonOptions
+    });
+  }
 
   // 5. ML Risk Timeline Chart
-  const ctxRisk = document.getElementById('chart-risk-history').getContext('2d');
-  charts.riskHistory = new Chart(ctxRisk, {
-    type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        label: 'Risk Score (1:LOW, 2:MED, 3:HIGH)',
-        data: [],
-        borderColor: '#ec4899',
-        backgroundColor: 'rgba(236, 72, 153, 0.15)',
-        borderWidth: 2,
-        stepped: true,
-        fill: true
-      }]
-    },
-    options: {
-      ...commonOptions,
-      scales: {
-        ...commonOptions.scales,
-        y: {
-          min: 0.5,
-          max: 3.5,
-          ticks: {
-            stepSize: 1,
-            color: '#94a3b8',
-            callback: (val) => val === 1 ? 'LOW' : val === 2 ? 'MEDIUM' : val === 3 ? 'HIGH' : ''
+  const elRisk = document.getElementById('chart-risk-history');
+  if (elRisk) {
+    const ctxRisk = elRisk.getContext('2d');
+    charts.riskHistory = new Chart(ctxRisk, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Risk Score (1:LOW, 2:MED, 3:HIGH)',
+          data: [],
+          borderColor: '#ec4899',
+          backgroundColor: 'rgba(236, 72, 153, 0.15)',
+          borderWidth: 2,
+          stepped: true,
+          fill: true
+        }]
+      },
+      options: {
+        ...commonOptions,
+        scales: {
+          ...commonOptions.scales,
+          y: {
+            min: 0.5,
+            max: 3.5,
+            ticks: {
+              stepSize: 1,
+              color: '#94a3b8',
+              callback: (val) => val === 1 ? 'LOW' : val === 2 ? 'MEDIUM' : val === 3 ? 'HIGH' : ''
+            }
           }
         }
       }
-    }
-  });
+    });
+  }
 }
 
 function setHistoryRange(range) {
@@ -485,32 +540,41 @@ function loadHistoryData() {
     .then(res => res.json())
     .then(data => {
       const readings = data.readings || [];
-      const labels = readings.map(r => r.timestamp ? r.timestamp.split(' ')[1] || r.timestamp : '');
+      const labels = readings.map(r => r.timestamp ? (r.timestamp.includes(' ') ? r.timestamp.split(' ')[1] : r.timestamp) : '');
       
-      charts.tilt.data.labels = labels;
-      charts.tilt.data.datasets[0].data = readings.map(r => r.tilt);
-      charts.tilt.update();
+      if (charts.tilt) {
+        charts.tilt.data.labels = labels;
+        charts.tilt.data.datasets[0].data = readings.map(r => r.tilt);
+        charts.tilt.update();
+      }
 
-      charts.vibration.data.labels = labels;
-      charts.vibration.data.datasets[0].data = readings.map(r => r.vibration);
-      charts.vibration.update();
+      if (charts.vibration) {
+        charts.vibration.data.labels = labels;
+        charts.vibration.data.datasets[0].data = readings.map(r => r.vibration);
+        charts.vibration.update();
+      }
 
-      charts.temperature.data.labels = labels;
-      charts.temperature.data.datasets[0].data = readings.map(r => r.temperature);
-      charts.temperature.update();
+      if (charts.temperature) {
+        charts.temperature.data.labels = labels;
+        charts.temperature.data.datasets[0].data = readings.map(r => r.temperature);
+        charts.temperature.update();
+      }
 
-      charts.humidity.data.labels = labels;
-      charts.humidity.data.datasets[0].data = readings.map(r => r.humidity);
-      charts.humidity.update();
+      if (charts.humidity) {
+        charts.humidity.data.labels = labels;
+        charts.humidity.data.datasets[0].data = readings.map(r => r.humidity);
+        charts.humidity.update();
+      }
     })
     .catch(err => console.error("Error loading chart history:", err));
 }
 
 function appendDataToCharts(r, ml) {
-  const timeLabel = new Date().toLocaleTimeString();
+  const timeLabel = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
   // Helper to append and keep max 25 points
   const pushPoint = (chart, label, val) => {
+    if (!chart) return;
     chart.data.labels.push(label);
     chart.data.datasets[0].data.push(val);
     if (chart.data.labels.length > 25) {
@@ -531,13 +595,16 @@ function loadRiskHistory() {
     .then(res => res.json())
     .then(data => {
       const hist = data.history || [];
-      const labels = hist.map(h => h.timestamp ? h.timestamp.split(' ')[1] || h.timestamp : '');
+      const labels = hist.map(h => h.timestamp ? (h.timestamp.includes(' ') ? h.timestamp.split(' ')[1] : h.timestamp) : '');
       const scores = hist.map(h => h.risk_level === 'HIGH' ? 3 : h.risk_level === 'MEDIUM' ? 2 : 1);
 
-      charts.riskHistory.data.labels = labels;
-      charts.riskHistory.data.datasets[0].data = scores;
-      charts.riskHistory.update();
-    });
+      if (charts.riskHistory) {
+        charts.riskHistory.data.labels = labels;
+        charts.riskHistory.data.datasets[0].data = scores;
+        charts.riskHistory.update();
+      }
+    })
+    .catch(err => console.error("Error loading risk history:", err));
 }
 
 function fetchLatestNodeData(nodeId) {
@@ -550,7 +617,8 @@ function fetchLatestNodeData(nodeId) {
           confidence_pct: data.reading.confidence
         });
       }
-    });
+    })
+    .catch(err => console.error("Error fetching latest node data:", err));
 }
 
 // Test Payload Submission
@@ -616,3 +684,13 @@ function submitContactForm(e) {
     resp.innerText = "Network error: " + err.message;
   });
 }
+
+// Expose functions globally for inline onclick attributes
+window.showTab = showTab;
+window.selectNode = selectNode;
+window.setMode = setMode;
+window.changeScenario = changeScenario;
+window.setHistoryRange = setHistoryRange;
+window.dismissAnomaly = dismissAnomaly;
+window.submitTestPayload = submitTestPayload;
+window.submitContactForm = submitContactForm;

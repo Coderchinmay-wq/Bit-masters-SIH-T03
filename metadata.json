@@ -1,0 +1,8 @@
+{
+  "name": "AI Mine Monitoring System",
+  "description": "Real-time IoT sensor telemetry monitoring and Machine Learning hazard detection for underground mines",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
