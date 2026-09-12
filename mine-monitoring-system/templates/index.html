@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Mine Monitoring & Risk Detection System</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            darkbg: '#0b0f19',
+            cardbg: '#131b2e',
+            bordercolor: '#233252',
+            accent: '#38bdf8',
+            lowrisk: '#10b981',
+            medrisk: '#f59e0b',
+            highrisk: '#ef4444',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body class="bg-darkbg text-slate-100 min-h-screen flex flex-col antialiased">
+
+  <!-- TOP NAVIGATION BAR -->
+  <header class="bg-slate-900/90 backdrop-blur border-b border-bordercolor sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        
+        <!-- Logo & Project Title -->
+        <div class="flex items-center space-x-3 cursor-pointer" onclick="showTab('home')">
+          <div class="p-2 bg-blue-600/20 text-accent rounded-lg border border-blue-500/30">
+            <i data-lucide="shield-alert" class="w-6 h-6 text-accent"></i>
+          </div>
+          <div>
+            <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+              MINE MONITOR <span class="text-xs px-2 py-0.5 rounded bg-blue-900/60 text-accent font-semibold border border-blue-500/30">AI-v2.0</span>
+            </h1>
+            <p class="text-xs text-slate-400 font-mono">ESP32 & ML Risk Engine</p>
+          </div>
+        </div>
+
+        <!-- Desktop Navigation Tabs -->
+        <nav class="hidden md:flex space-x-1 font-medium text-sm">
+          <button onclick="showTab('home')" id="nav-home" class="nav-tab px-4 py-2 rounded-lg transition text-slate-300 hover:text-white flex items-center gap-2">
+            <i data-lucide="home" class="w-4 h-4"></i> HOME
+          </button>
+          <button onclick="showTab('monitoring')" id="nav-monitoring" class="nav-tab px-4 py-2 rounded-lg transition text-slate-300 hover:text-white flex items-center gap-2">
+            <i data-lucide="activity" class="w-4 h-4"></i> MONITORING
+          </button>
+          <button onclick="showTab('ml-analysis')" id="nav-ml-analysis" class="nav-tab px-4 py-2 rounded-lg transition text-slate-300 hover:text-white flex items-center gap-2">
+            <i data-lucide="brain-circuit" class="w-4 h-4"></i> ML ANALYSIS
+          </button>
+          <button onclick="showTab('contact')" id="nav-contact" class="nav-tab px-4 py-2 rounded-lg transition text-slate-300 hover:text-white flex items-center gap-2">
+            <i data-lucide="mail" class="w-4 h-4"></i> CONTACT
+          </button>
+          <button onclick="showTab('esp32-guide')" id="nav-esp32-guide" class="nav-tab px-4 py-2 rounded-lg transition text-slate-300 hover:text-white flex items-center gap-2">
+            <i data-lucide="cpu" class="w-4 h-4"></i> ESP32 SETUP
+          </button>
+        </nav>
+
+        <!-- Right Side: Mode Controls & Global System Status -->
+        <div class="flex items-center space-x-3">
+          
+          <!-- Mode Toggle Pill -->
+          <div class="bg-slate-800 p-1 rounded-xl border border-slate-700 flex items-center text-xs">
+            <button id="btn-live-mode" onclick="setMode('live')" class="px-2.5 py-1 rounded-lg font-semibold transition text-slate-400">
+              LIVE
+            </button>
+            <button id="btn-demo-mode" onclick="setMode('demo')" class="px-2.5 py-1 rounded-lg font-semibold transition text-slate-400">
+              DEMO
+            </button>
+          </div>
+
+          <!-- Scenario Dropdown (Visible when Demo Mode is Active) -->
+          <div id="demo-scenario-box" class="hidden">
+            <select id="select-scenario" onchange="changeScenario(this.value)" class="bg-slate-800 text-xs border border-amber-500/40 text-amber-300 rounded-lg px-2 py-1 font-mono focus:outline-none">
+              <option value="NORMAL">Scenario: NORMAL</option>
+              <option value="WARNING">Scenario: WARNING</option>
+              <option value="DANGER">Scenario: DANGER</option>
+            </select>
+          </div>
+
+          <!-- System Online Badge -->
+          <div id="global-status-badge" class="px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-2 bg-slate-800 border-slate-700">
+            <span class="status-dot offline" id="global-status-dot"></span>
+            <span id="global-status-text" class="font-mono">CHECKING...</span>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Nav Sub-Header -->
+    <div class="md:hidden flex overflow-x-auto border-t border-bordercolor bg-slate-900 px-2 py-2 text-xs font-medium space-x-1 scrollbar-none">
+      <button onclick="showTab('home')" class="px-3 py-1.5 rounded-md whitespace-nowrap text-slate-300 hover:text-white">HOME</button>
+      <button onclick="showTab('monitoring')" class="px-3 py-1.5 rounded-md whitespace-nowrap text-slate-300 hover:text-white">MONITORING</button>
+      <button onclick="showTab('ml-analysis')" class="px-3 py-1.5 rounded-md whitespace-nowrap text-slate-300 hover:text-white">ML ANALYSIS</button>
+      <button onclick="showTab('contact')" class="px-3 py-1.5 rounded-md whitespace-nowrap text-slate-300 hover:text-white">CONTACT</button>
+      <button onclick="showTab('esp32-guide')" class="px-3 py-1.5 rounded-md whitespace-nowrap text-slate-300 hover:text-white">ESP32 SETUP</button>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- ========================================== -->
+    <!-- 1. HOME PAGE SECTION -->
+    <!-- ========================================== -->
+    <section id="page-home" class="tab-content">
+      <div class="space-y-12">
+        
+        <!-- Hero Banner -->
+        <div class="text-center max-w-4xl mx-auto py-10 space-y-6">
+          <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-950/80 border border-blue-500/30 text-accent text-xs font-semibold uppercase tracking-wider">
+            <i data-lucide="radio" class="w-4 h-4 animate-pulse"></i> Early Structural & Environmental Protection
+          </div>
+          
+          <h1 class="text-4xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">
+            AI-Enabled Mine Monitoring System
+          </h1>
+          
+          <p class="text-xl text-slate-300 font-light max-w-3xl mx-auto">
+            Real-Time Sensor Monitoring and Machine Learning Based Risk Detection
+          </p>
+
+          <p class="text-slate-400 text-base max-w-2xl mx-auto leading-relaxed">
+            The system uses multiple IoT sensors connected to an ESP32 receiver to monitor underground environmental and structural conditions. Sensor telemetry is transmitted to a central backend web server, where it is displayed in real time and evaluated using a Random Forest Machine Learning model to identify potential hazard conditions.
+          </p>
+
+          <div class="pt-4 flex justify-center gap-4">
+            <button onclick="showTab('monitoring')" class="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold shadow-lg shadow-blue-600/30 transition flex items-center gap-2">
+              <i data-lucide="activity" class="w-5 h-5"></i> View Live Monitoring
+            </button>
+            <button onclick="showTab('ml-analysis')" class="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold transition flex items-center gap-2">
+              <i data-lucide="brain-circuit" class="w-5 h-5 text-accent"></i> Explore ML Model
+            </button>
+          </div>
+        </div>
+
+        <!-- Architecture Flow Chart -->
+        <div class="card-glass p-8 space-y-6">
+          <div class="flex items-center justify-between border-b border-bordercolor pb-4">
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+              <i data-lucide="workflow" class="w-5 h-5 text-accent"></i> System Architecture Flow
+            </h2>
+            <span class="text-xs text-slate-400 font-mono">End-to-End Ingestion Pipeline</span>
+          </div>
+
+          <div class="grid grid-cols-2 md:grid-cols-7 gap-3 text-center">
+            
+            <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 flex flex-col items-center justify-center space-y-2">
+              <div class="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <i data-lucide="gauge" class="w-5 h-5"></i>
+              </div>
+              <span class="text-xs font-bold text-white">1. Sensors</span>
+              <span class="text-[10px] text-slate-400">MPU6050, Vib, DHT</span>
+            </div>
+
+            <div class="flex items-center justify-center hidden md:flex">
+              <i data-lucide="arrow-right" class="w-5 h-5 text-slate-600"></i>
+            </div>
+
+            <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 flex flex-col items-center justify-center space-y-2">
+              <div class="p-2.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                <i data-lucide="cpu" class="w-5 h-5"></i>
+              </div>
+              <span class="text-xs font-bold text-white">2. ESP32</span>
+              <span class="text-[10px] text-slate-400">Microcontroller Node</span>
+            </div>
+
+            <div class="flex items-center justify-center hidden md:flex">
+              <i data-lucide="arrow-right" class="w-5 h-5 text-slate-600"></i>
+            </div>
+
+            <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 flex flex-col items-center justify-center space-y-2">
+              <div class="p-2.5 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                <i data-lucide="wifi" class="w-5 h-5"></i>
+              </div>
+              <span class="text-xs font-bold text-white">3. Receiver</span>
+              <span class="text-[10px] text-slate-400">Wi-Fi / Gateway</span>
+            </div>
+
+            <div class="flex items-center justify-center hidden md:flex">
+              <i data-lucide="arrow-right" class="w-5 h-5 text-slate-600"></i>
+            </div>
+
+            <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 flex flex-col items-center justify-center space-y-2 col-span-2 md:col-span-1">
+              <div class="p-2.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                <i data-lucide="server" class="w-5 h-5"></i>
+              </div>
+              <span class="text-xs font-bold text-white">4. Web Server</span>
+              <span class="text-[10px] text-slate-400">HTTP REST & DB</span>
+            </div>
+
+          </div>
+
+          <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-center pt-2">
+            <div class="col-span-2 md:col-span-1 hidden md:block"></div>
+            
+            <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 flex flex-col items-center justify-center space-y-2">
+              <div class="p-2.5 rounded-lg bg-pink-500/10 text-pink-400 border border-pink-500/20">
+                <i data-lucide="brain-circuit" class="w-5 h-5"></i>
+              </div>
+              <span class="text-xs font-bold text-white">5. ML Analysis</span>
+              <span class="text-[10px] text-slate-400">Random Forest</span>
+            </div>
+
+            <div class="flex items-center justify-center hidden md:flex">
+              <i data-lucide="arrow-right" class="w-5 h-5 text-slate-600"></i>
+            </div>
+
+            <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 flex flex-col items-center justify-center space-y-2">
+              <div class="p-2.5 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+              </div>
+              <span class="text-xs font-bold text-white">6. Dashboard</span>
+              <span class="text-[10px] text-slate-400">Real-Time Graphs</span>
+            </div>
+
+            <div class="flex items-center justify-center hidden md:flex">
+              <i data-lucide="arrow-right" class="w-5 h-5 text-slate-600"></i>
+            </div>
+
+            <div class="bg-slate-900/80 p-4 rounded-xl border border-rose-500/30 bg-rose-950/20 flex flex-col items-center justify-center space-y-2">
+              <div class="p-2.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                <i data-lucide="bell-ring" class="w-5 h-5"></i>
+              </div>
+              <span class="text-xs font-bold text-white">7. Alert</span>
+              <span class="text-[10px] text-rose-300">Risk Mitigation</span>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Key Feature Highlights -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          <div class="card-glass p-6 space-y-3">
+            <div class="w-10 h-10 rounded-lg bg-blue-500/10 text-accent border border-blue-500/20 flex items-center justify-center">
+              <i data-lucide="compass" class="w-5 h-5"></i>
+            </div>
+            <h3 class="text-lg font-bold text-white">MPU6050 Structural Tilt</h3>
+            <p class="text-sm text-slate-400 leading-relaxed">
+              Monitors ground shift, slope tilt angle, and 3-axis accelerometer/gyroscope movement to catch pre-collapse structural movement.
+            </p>
+          </div>
+
+          <div class="card-glass p-6 space-y-3">
+            <div class="w-10 h-10 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center">
+              <i data-lucide="vibrate" class="w-5 h-5"></i>
+            </div>
+            <h3 class="text-lg font-bold text-white">Seismic & Vibration Sensing</h3>
+            <p class="text-sm text-slate-400 leading-relaxed">
+              Tracks high-frequency rock movement, micro-seismic vibrations, and cumulative shock event counts to detect subterranean instability.
+            </p>
+          </div>
+
+          <div class="card-glass p-6 space-y-3">
+            <div class="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center">
+              <i data-lucide="thermometer-snowflake" class="w-5 h-5"></i>
+            </div>
+            <h3 class="text-lg font-bold text-white">DHT Temperature & Humidity</h3>
+            <p class="text-sm text-slate-400 leading-relaxed">
+              Supports both DHT11 and DHT22 environmental sensors to measure ventilation health, humidity build-up, and thermal anomalies.
+            </p>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- ========================================== -->
+    <!-- 2. MONITORING DASHBOARD SECTION (MAIN) -->
+    <!-- ========================================== -->
+    <section id="page-monitoring" class="tab-content hidden">
+      <div class="space-y-6">
+
+        <!-- Top Bar: Node Selector & Connection Status -->
+        <div class="card-glass p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+          
+          <!-- Node Selector Tabs -->
+          <div class="flex items-center space-x-2">
+            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider mr-2">Select Node:</span>
+            <button onclick="selectNode('NODE_01')" id="btn-node-NODE_01" class="node-btn px-4 py-2 rounded-xl text-sm font-bold border transition bg-blue-600 text-white border-blue-500 shadow-md">
+              NODE 01
+            </button>
+            <button onclick="selectNode('NODE_02')" id="btn-node-NODE_02" class="node-btn px-4 py-2 rounded-xl text-sm font-bold border transition bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700">
+              NODE 02
+            </button>
+            <button onclick="selectNode('NODE_03')" id="btn-node-NODE_03" class="node-btn px-4 py-2 rounded-xl text-sm font-bold border transition bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700">
+              NODE 03
+            </button>
+          </div>
+
+          <!-- Connection Status Details -->
+          <div class="flex items-center space-x-4 text-xs">
+            <div class="flex items-center space-x-2 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-800">
+              <span class="text-slate-400">ESP32 Receiver:</span>
+              <span id="mon-esp32-status" class="font-bold text-emerald-400 flex items-center gap-1">
+                <span class="status-dot online"></span> ONLINE
+              </span>
+            </div>
+
+            <div class="flex items-center space-x-2 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-800 font-mono">
+              <span class="text-slate-400">Last Received:</span>
+              <span id="mon-last-received" class="text-slate-200">Just now</span>
+            </div>
+
+            <!-- Demo Mode Badge -->
+            <span id="demo-mode-badge" class="hidden px-2.5 py-1 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 animate-pulse">
+              DEMO DATA
+            </span>
+          </div>
+
+        </div>
+
+        <!-- Anomaly Alert Banner (Hidden by default) -->
+        <div id="anomaly-alert-banner" class="hidden card-glass bg-rose-950/40 border-rose-500/50 p-4 flex items-center justify-between text-rose-200 animate-bounce">
+          <div class="flex items-center space-x-3">
+            <i data-lucide="triangle-alert" class="w-6 h-6 text-rose-400"></i>
+            <div>
+              <h4 class="font-bold text-sm text-white">ANOMALY WARNING DETECTED</h4>
+              <p id="anomaly-alert-msg" class="text-xs text-rose-300">Sudden structural tilt shift observed on node.</p>
+            </div>
+          </div>
+          <button onclick="dismissAnomaly()" class="text-xs px-2 py-1 bg-rose-900/80 hover:bg-rose-800 text-white rounded">Dismiss</button>
+        </div>
+
+        <!-- SENSOR METRIC CARDS GRID -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+
+          <!-- 1. MPU6050 CARD -->
+          <div class="card-glass p-6 space-y-4 relative overflow-hidden">
+            <div class="flex items-center justify-between border-b border-bordercolor pb-3">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="compass" class="w-5 h-5 text-accent"></i>
+                <h3 class="font-bold text-white">MPU6050</h3>
+              </div>
+              <span id="card-mpu-status" class="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/30">
+                NORMAL
+              </span>
+            </div>
+
+            <div>
+              <p class="text-xs text-slate-400 uppercase font-semibold">Tilt Angle</p>
+              <div class="flex items-baseline space-x-1">
+                <span id="val-tilt" class="text-4xl card-metric-value text-white">0.0</span>
+                <span class="text-lg text-slate-400 font-bold">°</span>
+              </div>
+            </div>
+
+            <!-- Accelerometer & Gyroscope Details -->
+            <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800/80 text-[11px] font-mono space-y-1.5 text-slate-300">
+              <div class="flex justify-between">
+                <span class="text-slate-500">Accel (m/s²):</span>
+                <span>X:<span id="val-accel-x" class="text-accent ml-1">0.0</span> Y:<span id="val-accel-y" class="text-accent ml-1">0.0</span> Z:<span id="val-accel-z" class="text-accent ml-1">9.8</span></span>
+              </div>
+              <div class="flex justify-between border-t border-slate-800/60 pt-1">
+                <span class="text-slate-500">Gyro (°/s):</span>
+                <span>X:<span id="val-gyro-x" class="text-purple-400 ml-1">0.0</span> Y:<span id="val-gyro-y" class="text-purple-400 ml-1">0.0</span> Z:<span id="val-gyro-z" class="text-purple-400 ml-1">0.0</span></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. VIBRATION SENSOR CARD -->
+          <div class="card-glass p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-bordercolor pb-3">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="vibrate" class="w-5 h-5 text-amber-400"></i>
+                <h3 class="font-bold text-white">VIBRATION</h3>
+              </div>
+              <span id="card-vib-status" class="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/30">
+                NORMAL
+              </span>
+            </div>
+
+            <div>
+              <p class="text-xs text-slate-400 uppercase font-semibold">Intensity Level</p>
+              <div class="flex items-baseline space-x-1">
+                <span id="val-vibration" class="text-4xl card-metric-value text-amber-400">0</span>
+                <span class="text-xs text-slate-400">amplitude</span>
+              </div>
+            </div>
+
+            <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800/80 text-xs flex justify-between items-center">
+              <span class="text-slate-400">Vibration Events:</span>
+              <span id="val-vib-events" class="font-mono font-bold text-white text-sm">0</span>
+            </div>
+          </div>
+
+          <!-- 3. DHT TEMPERATURE & HUMIDITY CARD -->
+          <div class="card-glass p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-bordercolor pb-3">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="thermometer" class="w-5 h-5 text-emerald-400"></i>
+                <h3 class="font-bold text-white">DHT SENSOR</h3>
+              </div>
+              <span id="card-dht-status" class="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/30">
+                NORMAL
+              </span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <p class="text-[11px] text-slate-400 uppercase font-semibold">Temp</p>
+                <div class="flex items-baseline space-x-0.5">
+                  <span id="val-temp" class="text-2xl card-metric-value text-white">0.0</span>
+                  <span class="text-xs text-slate-400 font-bold">°C</span>
+                </div>
+              </div>
+
+              <div>
+                <p class="text-[11px] text-slate-400 uppercase font-semibold">Humidity</p>
+                <div class="flex items-baseline space-x-0.5">
+                  <span id="val-humidity" class="text-2xl card-metric-value text-cyan-400">0</span>
+                  <span class="text-xs text-slate-400 font-bold">%</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="text-[10px] text-slate-500 text-center font-mono border-t border-slate-800/60 pt-2">
+              Supports DHT11 & DHT22 Telemetry
+            </div>
+          </div>
+
+          <!-- 4. ML RISK ANALYSIS SUMMARY CARD -->
+          <div class="card-glass p-6 space-y-4 border-l-4 border-l-emerald-500" id="card-risk-container">
+            <div class="flex items-center justify-between border-b border-bordercolor pb-3">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="brain" class="w-5 h-5 text-pink-400"></i>
+                <h3 class="font-bold text-white">ML RISK ANALYSIS</h3>
+              </div>
+            </div>
+
+            <div class="text-center py-1">
+              <p class="text-xs text-slate-400 uppercase font-semibold mb-1">Predicted Hazard Level</p>
+              <div id="badge-current-risk" class="badge-risk badge-low text-base">
+                LOW RISK
+              </div>
+            </div>
+
+            <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-800/80 text-xs space-y-1">
+              <div class="flex justify-between text-slate-400">
+                <span>Model Confidence:</span>
+                <span id="val-risk-confidence" class="font-mono font-bold text-white">95.0%</span>
+              </div>
+              <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                <div id="bar-risk-confidence" class="bg-emerald-500 h-1.5 rounded-full" style="width: 95%"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- HISTORICAL GRAPHS SECTION -->
+        <div class="space-y-6 pt-4">
+          
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+              <i data-lucide="line-chart" class="w-5 h-5 text-accent"></i> Real-Time Sensor Telemetry History
+            </h3>
+
+            <!-- Time Range Filters -->
+            <div class="bg-slate-800 p-1 rounded-xl border border-slate-700 flex items-center text-xs">
+              <button onclick="setHistoryRange('1h')" id="btn-range-1h" class="range-btn px-3 py-1 rounded-lg font-semibold transition bg-blue-600 text-white">1 Hour</button>
+              <button onclick="setHistoryRange('6h')" id="btn-range-6h" class="range-btn px-3 py-1 rounded-lg font-semibold transition text-slate-400 hover:text-white">6 Hours</button>
+              <button onclick="setHistoryRange('24h')" id="btn-range-24h" class="range-btn px-3 py-1 rounded-lg font-semibold transition text-slate-400 hover:text-white">24 Hours</button>
+            </div>
+          </div>
+
+          <!-- Charts Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <!-- Tilt Chart -->
+            <div class="card-glass p-5 space-y-3">
+              <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex justify-between">
+                <span>Tilt Angle vs Time</span>
+                <span class="text-accent font-mono font-normal">MPU6050 (°)</span>
+              </h4>
+              <div class="h-56 relative">
+                <canvas id="chart-tilt"></canvas>
+              </div>
+            </div>
+
+            <!-- Vibration Chart -->
+            <div class="card-glass p-5 space-y-3">
+              <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex justify-between">
+                <span>Vibration Intensity vs Time</span>
+                <span class="text-amber-400 font-mono font-normal">Sensor Level</span>
+              </h4>
+              <div class="h-56 relative">
+                <canvas id="chart-vibration"></canvas>
+              </div>
+            </div>
+
+            <!-- Temperature Chart -->
+            <div class="card-glass p-5 space-y-3">
+              <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex justify-between">
+                <span>Temperature vs Time</span>
+                <span class="text-rose-400 font-mono font-normal">DHT (°C)</span>
+              </h4>
+              <div class="h-56 relative">
+                <canvas id="chart-temperature"></canvas>
+              </div>
+            </div>
+
+            <!-- Humidity Chart -->
+            <div class="card-glass p-5 space-y-3">
+              <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex justify-between">
+                <span>Humidity vs Time</span>
+                <span class="text-cyan-400 font-mono font-normal">DHT (%)</span>
+              </h4>
+              <div class="h-56 relative">
+                <canvas id="chart-humidity"></canvas>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- INTERACTIVE TEST ENDPOINT PANEL -->
+        <div class="card-glass p-6 space-y-4">
+          <div class="flex items-center justify-between border-b border-bordercolor pb-3">
+            <h3 class="font-bold text-white flex items-center gap-2">
+              <i data-lucide="terminal" class="w-5 h-5 text-accent"></i> ESP32 Test Ingestion Sandbox
+            </h3>
+            <span class="text-xs text-slate-400 font-mono">POST /api/sensor-data</span>
+          </div>
+
+          <p class="text-xs text-slate-400">
+            Use this interactive panel to simulate an HTTP POST request from an ESP32 hardware node without physical hardware.
+          </p>
+
+          <form id="test-payload-form" onsubmit="submitTestPayload(event)" class="grid grid-cols-2 md:grid-cols-6 gap-3 text-xs">
+            <div>
+              <label class="block text-slate-400 mb-1">Node ID</label>
+              <input type="text" id="test-node-id" value="NODE_01" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono">
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">Tilt (°)</label>
+              <input type="number" step="0.1" id="test-tilt" value="7.4" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono">
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">Vibration</label>
+              <input type="number" id="test-vibration" value="42" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono">
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">Temp (°C)</label>
+              <input type="number" step="0.1" id="test-temp" value="29.5" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono">
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">Humidity (%)</label>
+              <input type="number" step="0.1" id="test-humidity" value="64" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-mono">
+            </div>
+            <div class="flex items-end">
+              <button type="submit" class="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition">
+                Send Test JSON
+              </button>
+            </div>
+          </form>
+          <div id="test-response-output" class="hidden text-xs font-mono p-3 bg-slate-950 rounded-lg text-emerald-400 border border-slate-800"></div>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- ========================================== -->
+    <!-- 3. MACHINE LEARNING RISK ANALYSIS SECTION -->
+    <!-- ========================================== -->
+    <section id="page-ml-analysis" class="tab-content hidden">
+      <div class="space-y-8">
+        
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-bordercolor pb-4">
+          <div>
+            <h2 class="text-2xl font-extrabold text-white flex items-center gap-2">
+              <i data-lucide="brain-circuit" class="w-6 h-6 text-pink-400"></i> Machine Learning Risk Analysis Engine
+            </h2>
+            <p class="text-slate-400 text-sm">Random Forest Classification for Mine Structural & Environmental Hazards</p>
+          </div>
+          
+          <div class="px-4 py-2 bg-slate-900 rounded-xl border border-slate-800 text-xs font-mono text-slate-300">
+            Model: <span class="text-accent font-bold">RandomForestClassifier (120 Trees)</span>
+          </div>
+        </div>
+
+        <!-- Current Risk Summary Card -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          <div class="card-glass p-6 md:col-span-2 space-y-6">
+            <div class="flex items-center justify-between">
+              <h3 class="font-bold text-white">Current Assessed Condition</h3>
+              <span class="text-xs text-slate-400 font-mono">Node Target: <span id="ml-target-node" class="text-white">NODE_01</span></span>
+            </div>
+
+            <div class="flex flex-col md:flex-row items-center justify-around gap-6 bg-slate-900/80 p-6 rounded-xl border border-slate-800">
+              
+              <div class="text-center space-y-2">
+                <span class="text-xs text-slate-400 uppercase font-semibold">Risk Classification</span>
+                <div id="ml-badge-large" class="badge-risk badge-low text-xl px-6 py-2">
+                  LOW RISK
+                </div>
+              </div>
+
+              <div class="text-center space-y-2">
+                <span class="text-xs text-slate-400 uppercase font-semibold">ML Model Confidence</span>
+                <div id="ml-confidence-large" class="text-3xl card-metric-value text-white">
+                  92.4%
+                </div>
+                <p class="text-[10px] text-slate-500">Random Forest Certainty</p>
+              </div>
+
+            </div>
+
+            <!-- Sensor Factor Breakdown -->
+            <div class="space-y-3">
+              <h4 class="text-xs font-bold text-slate-300 uppercase">Input Telemetry Factors</h4>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+                <div class="bg-slate-900 p-3 rounded-lg border border-slate-800">
+                  <span class="text-[10px] text-slate-400 uppercase">Tilt</span>
+                  <div id="ml-factor-tilt" class="text-lg font-mono font-bold text-white">0.0°</div>
+                </div>
+                <div class="bg-slate-900 p-3 rounded-lg border border-slate-800">
+                  <span class="text-[10px] text-slate-400 uppercase">Vibration</span>
+                  <div id="ml-factor-vib" class="text-lg font-mono font-bold text-amber-400">0</div>
+                </div>
+                <div class="bg-slate-900 p-3 rounded-lg border border-slate-800">
+                  <span class="text-[10px] text-slate-400 uppercase">Temperature</span>
+                  <div id="ml-factor-temp" class="text-lg font-mono font-bold text-rose-400">0.0°C</div>
+                </div>
+                <div class="bg-slate-900 p-3 rounded-lg border border-slate-800">
+                  <span class="text-[10px] text-slate-400 uppercase">Humidity</span>
+                  <div id="ml-factor-hum" class="text-lg font-mono font-bold text-cyan-400">0%</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Disclaimer Note -->
+            <div class="bg-blue-950/30 border border-blue-500/30 p-4 rounded-xl text-xs text-blue-200 space-y-1">
+              <div class="font-bold text-accent flex items-center gap-1.5">
+                <i data-lucide="info" class="w-4 h-4"></i> Model Explanation & Technical Note
+              </div>
+              <p class="leading-relaxed">
+                The ML model evaluates available sensor measurements together to classify monitored conditions. "ML Model Confidence" indicates the algorithm's statistical classification probability, not a scientifically validated mine collapse probability.
+              </p>
+            </div>
+
+          </div>
+
+          <!-- Multi-Node Risk Matrix -->
+          <div class="card-glass p-6 space-y-4">
+            <h3 class="font-bold text-white border-b border-bordercolor pb-3">Multi-Node Risk Status</h3>
+            
+            <div class="space-y-3">
+              <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                <div>
+                  <h4 class="font-bold text-sm text-white">NODE 01</h4>
+                  <p class="text-[10px] text-slate-400">Tunnel Section Alpha</p>
+                </div>
+                <span id="node-matrix-NODE_01" class="badge-risk badge-low text-xs">LOW</span>
+              </div>
+
+              <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                <div>
+                  <h4 class="font-bold text-sm text-white">NODE 02</h4>
+                  <p class="text-[10px] text-slate-400">Tunnel Section Beta</p>
+                </div>
+                <span id="node-matrix-NODE_02" class="badge-risk badge-low text-xs">LOW</span>
+              </div>
+
+              <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                <div>
+                  <h4 class="font-bold text-sm text-white">NODE 03</h4>
+                  <p class="text-[10px] text-slate-400">Deep Shaft Gamma</p>
+                </div>
+                <span id="node-matrix-NODE_03" class="badge-risk badge-low text-xs">LOW</span>
+              </div>
+            </div>
+
+            <!-- Model Dataset Summary -->
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 text-xs space-y-2">
+              <h4 class="font-bold text-slate-300">Model Specifications</h4>
+              <ul class="space-y-1 text-slate-400 text-[11px] list-disc list-inside">
+                <li>Algorithm: Random Forest Classifier</li>
+                <li>Training Samples: 2,000 synthetic rows</li>
+                <li>Validation Accuracy: <span class="text-emerald-400 font-bold">~98.5%</span></li>
+                <li>Feature Weight: Tilt (42%), Vib (35%), Temp (12%), Humidity (11%)</li>
+              </ul>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Risk History Timeline Graph -->
+        <div class="card-glass p-6 space-y-4">
+          <h3 class="font-bold text-white flex items-center gap-2">
+            <i data-lucide="history" class="w-5 h-5 text-accent"></i> Historical Risk Level Timeline
+          </h3>
+          <div class="h-64 relative">
+            <canvas id="chart-risk-history"></canvas>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- ========================================== -->
+    <!-- 4. CONTACT PAGE SECTION -->
+    <!-- ========================================== -->
+    <section id="page-contact" class="tab-content hidden">
+      <div class="max-w-3xl mx-auto space-y-8">
+        
+        <div class="text-center space-y-3">
+          <h2 class="text-3xl font-extrabold text-white">Contact Project Team</h2>
+          <p class="text-slate-400 text-sm">
+            AI-Enabled Low-Cost Mine Monitoring & Risk Detection System
+          </p>
+        </div>
+
+        <div class="card-glass p-8 space-y-6">
+          <form id="contact-form" onsubmit="submitContactForm(event)" class="space-y-4">
+            
+            <div>
+              <label class="block text-sm font-semibold text-slate-300 mb-1">Your Name</label>
+              <input type="text" id="contact-name" required placeholder="e.g. Alex Johnson" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500">
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-slate-300 mb-1">Email Address</label>
+              <input type="email" id="contact-email" required placeholder="e.g. alex@example.com" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500">
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-slate-300 mb-1">Message</label>
+              <textarea id="contact-message" required rows="4" placeholder="Enter your inquiry or technical feedback..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500"></textarea>
+            </div>
+
+            <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2">
+              <i data-lucide="send" class="w-4 h-4"></i> Send Message
+            </button>
+          </form>
+
+          <div id="contact-response" class="hidden p-4 rounded-xl text-sm border font-medium"></div>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- ========================================== -->
+    <!-- 5. ESP32 SETUP & API GUIDE SECTION -->
+    <!-- ========================================== -->
+    <section id="page-esp32-guide" class="tab-content hidden">
+      <div class="max-w-4xl mx-auto space-y-8">
+        
+        <div class="space-y-2 border-b border-bordercolor pb-4">
+          <h2 class="text-2xl font-extrabold text-white flex items-center gap-2">
+            <i data-lucide="cpu" class="w-6 h-6 text-accent"></i> ESP32 Receiver Connection Instructions
+          </h2>
+          <p class="text-slate-400 text-sm">Step-by-step guide to flash your ESP32 hardware and send real sensor readings.</p>
+        </div>
+
+        <div class="card-glass p-6 space-y-4">
+          <h3 class="font-bold text-white text-lg">1. Backend API Specification</h3>
+          <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 text-xs font-mono space-y-2">
+            <div class="flex justify-between border-b border-slate-800 pb-2">
+              <span class="text-slate-400">SERVER_URL:</span>
+              <span class="text-accent font-bold" id="guide-server-url">http://YOUR-SERVER-IP:5000/api/sensor-data</span>
+            </div>
+            <div class="flex justify-between border-b border-slate-800 pb-2">
+              <span class="text-slate-400">HTTP Method:</span>
+              <span class="text-emerald-400 font-bold">POST</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">Content-Type Header:</span>
+              <span class="text-amber-300">application/json</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-glass p-6 space-y-4">
+          <h3 class="font-bold text-white text-lg">2. Expected JSON Format</h3>
+          <pre class="bg-slate-950 p-4 rounded-xl text-xs text-blue-300 font-mono overflow-x-auto border border-slate-800">
+{
+  "node_id": "NODE_01",
+  "tilt": 7.4,
+  "accel_x": 0.12,
+  "accel_y": 0.45,
+  "accel_z": 9.72,
+  "gyro_x": 1.2,
+  "gyro_y": 0.8,
+  "gyro_z": 0.4,
+  "vibration": 42,
+  "temperature": 29.5,
+  "humidity": 64
+}
+          </pre>
+        </div>
+
+        <div class="card-glass p-6 space-y-4">
+          <h3 class="font-bold text-white text-lg">3. Complete Arduino ESP32 C++ Code</h3>
+          <p class="text-xs text-slate-400">
+            Copy and paste this sketch into Arduino IDE. Replace <code class="text-amber-300">WIFI_SSID</code>, <code class="text-amber-300">WIFI_PASSWORD</code>, and <code class="text-amber-300">SERVER_URL</code>.
+          </p>
+          <pre class="bg-slate-950 p-4 rounded-xl text-[11px] text-emerald-400 font-mono overflow-x-auto border border-slate-800 max-h-96">
+#include &lt;WiFi.h&gt;
+#include &lt;HTTPClient.h&gt;
+#include &lt;ArduinoJson.h&gt;
+
+const char* ssid = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
+const char* serverUrl = "http://192.168.1.100:5000/api/sensor-data"; // Change to your server IP
+
+const char* nodeId = "NODE_01";
+unsigned long sendInterval = 3000; // 3 seconds
+unsigned long lastSendTime = 0;
+
+void setup() {
+  Serial.begin(115200);
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to Wi-Fi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nConnected to Wi-Fi!");
+}
+
+void loop() {
+  if (millis() - lastSendTime >= sendInterval) {
+    lastSendTime = millis();
+    if (WiFi.status() == WL_CONNECTED) {
+      HTTPClient http;
+      http.begin(serverUrl);
+      http.addHeader("Content-Type", "application/json");
+
+      // Replace dummy values below with real MPU6050, Vibration & DHT readings
+      StaticJsonDocument&lt;256&gt; doc;
+      doc["node_id"] = nodeId;
+      doc["tilt"] = 2.4; 
+      doc["accel_x"] = 0.05; doc["accel_y"] = 0.10; doc["accel_z"] = 9.80;
+      doc["gyro_x"] = 0.10; doc["gyro_y"] = 0.00; doc["gyro_z"] = -0.05;
+      doc["vibration"] = 12;
+      doc["temperature"] = 28.5;
+      doc["humidity"] = 54.0;
+
+      String requestBody;
+      serializeJson(doc, requestBody);
+
+      int httpResponseCode = http.POST(requestBody);
+      if (httpResponseCode > 0) {
+        String response = http.getString();
+        Serial.println("Response code: " + String(httpResponseCode));
+        Serial.println("Response: " + response);
+      } else {
+        Serial.println("Error on POST: " + String(httpResponseCode));
+      }
+      http.end();
+    }
+  }
+}
+          </pre>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="bg-slate-900 border-t border-bordercolor py-6 text-center text-xs text-slate-500">
+    <p>AI-Enabled Low-Cost Mine Monitoring & Risk Detection System &copy; 2026</p>
+    <p class="mt-1 font-mono text-[11px]">ESP32 Gateway Telemetry & Scikit-Learn Random Forest Classifier</p>
+  </footer>
+
+  <!-- Main JavaScript File -->
+  <script src="/static/js/main.js"></script>
+
+</body>
+</html>
